@@ -61,6 +61,31 @@ test('MCP Server: initialize -> tools/list -> assign_task -> run_task -> approve
     });
     const approved = JSON.parse(approveRes.result.content[0].text).task;
     assert.equal(approved.status, 'done');
+
+    const kpiRes = await rpc('tools/call', { name: 'get_kpi_report' });
+    const kpi = JSON.parse(kpiRes.result.content[0].text);
+    assert.equal(kpi.summary.totalTasks, 1);
+    assert.equal(kpi.summary.doneTasks, 1);
+    assert.equal(kpi.summary.completionRate, 100);
+
+    const csvPath = path.join(os.tmpdir(), `mcp-export-${Date.now()}.csv`);
+    const csvRes = await rpc('tools/call', { name: 'export_tasks_csv', arguments: { outputPath: csvPath } });
+    const csvData = JSON.parse(csvRes.result.content[0].text);
+    assert.equal(csvData.rowCount, 1);
+    assert.ok(fs.existsSync(csvPath));
+    fs.unlinkSync(csvPath);
+
+    const notifyRes = await rpc('tools/call', {
+      name: 'send_task_notification',
+      arguments: { id: assigned.id, recipientEmail: 'doan@company.vn' }
+    });
+    const notifyData = JSON.parse(notifyRes.result.content[0].text);
+    assert.equal(notifyData.emailDraft.to, 'doan@company.vn');
+    assert.match(notifyData.emailDraft.subject, /Thiết kế nội thất 40m2/);
+
+    const delRes = await rpc('tools/call', { name: 'delete_task', arguments: { id: assigned.id } });
+    const delData = JSON.parse(delRes.result.content[0].text);
+    assert.equal(delData.deleted, true);
   } finally {
     child.kill();
     if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
