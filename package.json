@@ -3,9 +3,13 @@
   "version": "1.0.0",
   "description": "Multi-Agent AI Workforce & Task Delegation Orchestrator (Kanban / List / Deadline)",
   "type": "module",
+  "bin": {
+    "ai-workforce-mcp": "src/mcp-server.mjs"
+  },
   "scripts": {
     "start": "node src/server.mjs",
-    "test": "node --test test/orchestrator.test.mjs"
+    "mcp": "node src/mcp-server.mjs",
+    "test": "node --test test/*.test.mjs"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "ai-workforce-os": {
+      "command": "node",
+      "args": ["/duong-dan-den/ai-workforce-os/src/mcp-server.mjs"],
+      "env": {
+        "DATA_FILE": "/duong-dan-den/ai-workforce-os/data/workforce.json",
+        "GEMINI_API_KEY": ""
+      }
+    }
+  }
+}

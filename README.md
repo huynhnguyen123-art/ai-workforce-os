@@ -38,3 +38,28 @@ npm test
 - `POST /api/tasks/:id/approve` — Duyệt hoàn thành
 - `POST /api/tasks/:id/revise` — Yêu cầu làm lại kèm `feedback`
 - `DELETE /api/tasks/:id` — Xóa đầu việc
+
+---
+
+## Kết nối dưới dạng MCP Server (Antigravity / Claude Desktop / Cursor)
+
+Dự án đã tích hợp sẵn **MCP Server (`src/mcp-server.mjs`)** theo chuẩn JSON-RPC 2.0 qua `stdio` (không cần cài thêm thư viện ngoài), cung cấp 7 công cụ giao việc:
+- `list_agents` / `add_agent`
+- `list_tasks` / `assign_task` / `run_task`
+- `update_task_status` / `approve_or_revise_task`
+
+Sao chép cấu hình từ [mcp-config.example.json](mcp-config.example.json) vào mục **MCP Servers** của ứng dụng AI của bạn:
+
+```json
+{
+  "mcpServers": {
+    "ai-workforce-os": {
+      "command": "node",
+      "args": ["/duong-dan-den/ai-workforce-os/src/mcp-server.mjs"],
+      "env": {
+        "DATA_FILE": "/duong-dan-den/ai-workforce-os/data/workforce.json"
+      }
+    }
+  }
+}
+```
