@@ -154,39 +154,43 @@
     </div>
   </div>
 
-  <!-- Modal: Thêm AI Agent -->
+  <!-- Modal: Thêm / Chỉnh sửa Nhân viên & AI Agent -->
   <div id="newAgentModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
     <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-5 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <h3 class="text-sm font-semibold">Tuyển thêm Nhân viên Ảo AI</h3>
+        <h3 id="agentModalTitle" class="text-sm font-semibold">Thêm Nhân viên / AI Agent mới</h3>
         <button onclick="closeNewAgentModal()" class="text-slate-400 hover:text-white cursor-pointer">✕</button>
       </div>
-      <form id="newAgentForm" onsubmit="createAgent(event)" class="space-y-3 text-xs">
+      <form id="newAgentForm" onsubmit="saveAgent(event)" class="space-y-3 text-xs">
+        <input id="aEditId" type="hidden" value="" />
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-slate-400 mb-1">Tên AI Agent *</label>
-            <input id="aName" required type="text" placeholder="VD: AI Sale"
+            <label class="block text-slate-400 mb-1">Tên Nhân viên / AI *</label>
+            <input id="aName" required type="text" placeholder="VD: Đoàn tk, AI Sale..."
               class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100" />
           </div>
           <div>
-            <label class="block text-slate-400 mb-1">Chuyên môn / Vai trò</label>
-            <input id="aRole" type="text" placeholder="VD: Báo giá & Chốt đơn"
+            <label class="block text-slate-400 mb-1">Phòng ban / Chuyên môn</label>
+            <input id="aRole" type="text" placeholder="VD: Phòng Thiết kế, Báo giá & CRM"
               class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100" />
           </div>
         </div>
         <div>
-          <label class="block text-slate-400 mb-1">Từ khóa định tuyến (cách nhau bằng dấu phẩy)</label>
-          <input id="aKeywords" type="text" placeholder="sale, báo giá, hợp đồng, lead"
+          <label class="block text-slate-400 mb-1">Từ khóa tự động định tuyến (cách nhau bằng dấu phẩy)</label>
+          <input id="aKeywords" type="text" placeholder="thiết kế, banner, báo giá, hợp đồng"
             class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100" />
         </div>
         <div>
-          <label class="block text-slate-400 mb-1">System Prompt (Chỉ dẫn vai trò)</label>
-          <textarea id="aPrompt" rows="3" placeholder="Bạn là nhân viên AI Sale chuyên nghiệp..."
+          <label class="block text-slate-400 mb-1">System Prompt / Mô tả nhiệm vụ</label>
+          <textarea id="aPrompt" rows="3" placeholder="Chỉ dẫn cách AI thực hiện hoặc hỗ trợ công việc..."
             class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100"></textarea>
         </div>
-        <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
-          <button type="button" onclick="closeNewAgentModal()" class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 cursor-pointer">Hủy</button>
-          <button type="submit" class="px-4 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-medium cursor-pointer">Thêm AI Agent</button>
+        <div class="flex items-center justify-between gap-2 pt-3 border-t border-slate-800">
+          <button id="btnDeleteAgent" type="button" onclick="deleteEditingAgent()" class="hidden px-3 py-1.5 rounded-lg border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 cursor-pointer">Xóa</button>
+          <div class="flex items-center gap-2 ml-auto">
+            <button type="button" onclick="closeNewAgentModal()" class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 cursor-pointer">Hủy</button>
+            <button id="btnSubmitAgent" type="submit" class="px-4 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-medium cursor-pointer">Lưu</button>
+          </div>
         </div>
       </form>
     </div>
@@ -560,30 +564,39 @@
     }
 
     function renderAgentRoster() {
-      document.getElementById('agentRoster').innerHTML = state.agents.map((a, idx) => {
+      const cards = state.agents.map((a, idx) => {
         const color = COLORS[idx % COLORS.length];
         const tasks = state.tasks.filter(t => t.assignee === a.id);
         const running = tasks.filter(t => t.status === 'in_progress').length;
         const done = tasks.filter(t => t.status === 'done').length;
         const tag = a.name.replace(/^AI\s+/i, '').slice(0, 3).toUpperCase();
         return `
-          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between gap-2.5">
+          <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 flex flex-col justify-between gap-2.5 transition">
             <div class="flex items-start justify-between gap-2">
-              <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white" style="background:${color}">${tag}</div>
-                <div><div class="text-xs font-semibold">${a.name}</div><div class="text-xs text-slate-400">${a.role}</div></div>
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-xs font-bold text-white" style="background:${color}">${tag}</div>
+                <div class="min-w-0">
+                  <div class="text-xs font-semibold truncate">${a.name}</div>
+                  <div class="text-xs text-slate-400 truncate">${a.role}</div>
+                </div>
               </div>
-              <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
-                <span class="w-2 h-2 rounded-full ${running > 0 ? 'bg-indigo-400 pulse-dot' : 'bg-emerald-400'}"></span>${running > 0 ? 'Đang chạy' : 'Sẵn sàng'}
-              </span>
+              <button onclick="openEditAgentModal('${a.id}')" title="Chỉnh sửa" class="shrink-0 text-xs px-2 py-0.5 rounded border border-slate-700 text-slate-300 hover:border-indigo-500 hover:text-indigo-300 cursor-pointer">✎ Sửa</button>
             </div>
             <div class="flex items-center justify-between text-xs pt-2 border-t border-slate-800 text-slate-400">
               <span>Tổng: <strong class="text-slate-100">${tasks.length}</strong></span>
-              <span>Đang chạy: <strong class="text-slate-100">${running}</strong></span>
+              <span>Chạy: <strong class="text-slate-100">${running}</strong></span>
               <span>Xong: <strong class="text-emerald-400">${done}</strong></span>
             </div>
           </div>`;
       }).join('');
+
+      const addCard = `
+        <button onclick="openNewAgentModal()" class="bg-slate-900/40 border border-dashed border-slate-700 hover:border-indigo-500 hover:bg-slate-900 rounded-xl p-3.5 flex flex-col items-center justify-center gap-1 text-xs text-slate-400 hover:text-indigo-300 transition cursor-pointer min-h-[104px]">
+          <span class="text-lg leading-none">+</span>
+          <span class="font-medium">Thêm Nhân viên / AI</span>
+        </button>`;
+
+      document.getElementById('agentRoster').innerHTML = cards + addCard;
     }
 
     function renderTaskCard(task) {
@@ -732,19 +745,65 @@
       if (autoRun) setTimeout(() => runAgentTask(id), 250);
     }
 
-    function openNewAgentModal() { document.getElementById('newAgentModal').classList.remove('hidden'); }
-    function closeNewAgentModal() { document.getElementById('newAgentModal').classList.add('hidden'); document.getElementById('newAgentForm').reset(); }
-    function createAgent(e) {
+    function openNewAgentModal() {
+      document.getElementById('aEditId').value = '';
+      document.getElementById('agentModalTitle').textContent = 'Thêm Nhân viên / AI Agent mới';
+      document.getElementById('btnSubmitAgent').textContent = 'Thêm mới';
+      document.getElementById('btnDeleteAgent').classList.add('hidden');
+      document.getElementById('newAgentForm').reset();
+      document.getElementById('newAgentModal').classList.remove('hidden');
+    }
+
+    function openEditAgentModal(agentId) {
+      const a = state.agents.find(x => x.id === agentId);
+      if (!a) return;
+      document.getElementById('aEditId').value = a.id;
+      document.getElementById('aName').value = a.name || '';
+      document.getElementById('aRole').value = a.role || '';
+      document.getElementById('aKeywords').value = (a.keywords || []).join(', ');
+      document.getElementById('aPrompt').value = a.systemPrompt || '';
+      document.getElementById('agentModalTitle').textContent = `Chỉnh sửa: ${a.name}`;
+      document.getElementById('btnSubmitAgent').textContent = 'Lưu thay đổi';
+      document.getElementById('btnDeleteAgent').classList.toggle('hidden', state.agents.length <= 1);
+      document.getElementById('newAgentModal').classList.remove('hidden');
+    }
+
+    function closeNewAgentModal() {
+      document.getElementById('newAgentModal').classList.add('hidden');
+      document.getElementById('newAgentForm').reset();
+    }
+
+    function saveAgent(e) {
       e.preventDefault();
+      const editId = document.getElementById('aEditId').value.trim();
       const name = document.getElementById('aName').value.trim();
-      const id = 'ai-' + Date.now();
-      state.agents.push({
-        id, name,
-        role: document.getElementById('aRole').value.trim() || 'Nhân viên AI chuyên trách',
-        keywords: document.getElementById('aKeywords').value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
-        systemPrompt: document.getElementById('aPrompt').value.trim() || `Bạn là ${name}.`
-      });
-      addActivity('Quản lý', `Tuyển thêm nhân viên ảo ${name}.`);
+      const role = document.getElementById('aRole').value.trim() || 'Nhân viên chuyên trách';
+      const keywords = document.getElementById('aKeywords').value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+      const systemPrompt = document.getElementById('aPrompt').value.trim() || `Bạn là ${name}.`;
+
+      if (editId) {
+        const idx = state.agents.findIndex(x => x.id === editId);
+        if (idx >= 0) {
+          state.agents[idx] = { ...state.agents[idx], name, role, keywords, systemPrompt };
+          addActivity('Quản lý', `Đã cập nhật thông tin "${name}".`);
+        }
+      } else {
+        const id = 'ai-' + Date.now();
+        state.agents.push({ id, name, role, keywords, systemPrompt });
+        addActivity('Quản lý', `Đã thêm nhân viên / AI mới: ${name}.`);
+      }
+      saveState(); closeNewAgentModal(); render();
+    }
+
+    function deleteEditingAgent() {
+      const editId = document.getElementById('aEditId').value.trim();
+      if (!editId || state.agents.length <= 1) return;
+      const target = state.agents.find(x => x.id === editId);
+      if (!confirm(`Xóa "${target?.name}" khỏi danh sách?`)) return;
+      state.agents = state.agents.filter(x => x.id !== editId);
+      const fallbackId = state.agents[0].id;
+      state.tasks.forEach(t => { if (t.assignee === editId) t.assignee = fallbackId; });
+      addActivity('Quản lý', `Đã xóa "${target?.name}".`);
       saveState(); closeNewAgentModal(); render();
     }
 
