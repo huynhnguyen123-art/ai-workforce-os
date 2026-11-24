@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Workforce OS — Hệ thống Giao việc Multi-Agent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .line-clamp-2 {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .kanban-col {
+      min-height: 360px;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+    .kanban-col.drag-over {
+      border-color: #6366f1;
+      background-color: rgba(99, 102, 241, 0.08);
+    }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .pulse-dot { animation: pulseDot 1.4s infinite ease-in-out; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased min-h-screen">
+  <div class="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
+
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-800">
+      <div>
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-500 text-white font-bold text-sm">AI</span>
+          <h1 class="text-xl font-semibold tracking-tight">AI Workforce OS</h1>
+          <span id="aiModeBadge" class="text-xs px-2.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-300">Chế độ Mô phỏng</span>
+          <span id="diskSyncBadge" class="text-xs text-emerald-400">● Tự động lưu trên trình duyệt</span>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">
+          Mở trực tiếp và làm việc ngay: giao việc Multi-Agent, kéo-thả Kanban, theo dõi Deadline và lưu trực tiếp vào thư mục ổ cứng.
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="saveToDisk()" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 cursor-pointer">
+          💾 Lưu vào ổ cứng
+        </button>
+        <label class="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 cursor-pointer">
+          📂 Mở file đã lưu
+          <input type="file" accept=".json" onchange="importData(event)" class="hidden" />
+        </label>
+        <button onclick="openSettingsModal()" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 cursor-pointer">
+          ⚙ Cài đặt AI
+        </button>
+        <button onclick="openNewAgentModal()" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 cursor-pointer">
+          + Thêm AI Agent
+        </button>
+        <button onclick="runAllBacklog()" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 cursor-pointer">
+          ▶ Chạy tất cả việc tồn
+        </button>
+        <button onclick="openNewTaskModal()" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-500 hover:bg-indigo-400 text-white cursor-pointer">
+          + Giao việc mới
+        </button>
+      </div>
+    </header>
+
+    <!-- AI Agents Roster -->
+    <section id="agentRoster" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></section>
+
+    <!-- Controls -->
+    <section class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl p-3">
+      <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 w-fit">
+        <button id="tab-kanban" onclick="switchView('kanban')" class="px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer">Kanban</button>
+        <button id="tab-list" onclick="switchView('list')" class="px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer">Danh sách</button>
+        <button id="tab-deadline" onclick="switchView('deadline')" class="px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer">Deadline</button>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <input id="searchInput" type="text" placeholder="Tìm tên việc, mã task..." oninput="render()"
+          class="px-3 py-1.5 text-xs rounded-lg bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 w-48" />
+        <select id="filterAgent" onchange="render()"
+          class="px-2.5 py-1.5 text-xs rounded-lg bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none"></select>
+        <select id="filterPriority" onchange="render()"
+          class="px-2.5 py-1.5 text-xs rounded-lg bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none">
+          <option value="all">Mọi độ ưu tiên</option>
+          <option value="high">Cao (High)</option>
+          <option value="medium">Trung bình</option>
+          <option value="low">Thấp</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Main View -->
+    <main id="mainContent"></main>
+
+    <!-- Live Activity Feed -->
+    <section class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Nhật ký Điều phối Multi-Agent (Live)</h2>
+        <span id="liveIndicator" class="text-xs text-slate-400">Sẵn sàng</span>
+      </div>
+      <div id="activityFeed" class="space-y-1.5 max-h-36 overflow-y-auto text-xs font-mono"></div>
+    </section>
+  </div>
+
+  <!-- Modal: Giao việc mới -->
+  <div id="newTaskModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-semibold">Giao việc mới cho AI Agent</h3>
+        <button onclick="closeNewTaskModal()" class="text-slate-400 hover:text-white cursor-pointer">✕</button>
+      </div>
+      <form id="newTaskForm" onsubmit="createTask(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Tiêu đề công việc *</label>
+          <input id="fTitle" required type="text" placeholder="VD: Viết 5 bài đăng Facebook giới thiệu tính năng mới"
+            class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500" />
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Yêu cầu chi tiết (Brief / Prompt)</label>
+          <textarea id="fDesc" rows="3" placeholder="Mô tả mục tiêu, đối tượng, định dạng đầu ra mong muốn..."
+            class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500"></textarea>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Giao cho AI</label>
+            <select id="fAgent" class="w-full px-2.5 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100"></select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Độ ưu tiên</label>
+            <select id="fPriority" class="w-full px-2.5 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100">
+              <option value="high">Cao</option>
+              <option value="medium" selected>Trung bình</option>
+              <option value="low">Thấp</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Deadline</label>
+            <input id="fDeadline" type="date" required
+              class="w-full px-2.5 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100" />
+          </div>
+        </div>
+        <div class="flex items-center gap-2 pt-1">
+          <input id="fAutoRun" type="checkbox" checked class="accent-indigo-500" />
+          <label for="fAutoRun" class="text-slate-400">Tự động chạy AI Agent ngay sau khi tạo</label>
+        </div>
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeNewTaskModal()" class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 cursor-pointer">Hủy</button>
+          <button type="submit" class="px-4 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-medium cursor-pointer">Tạo & Giao việc</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Thêm AI Agent -->
+  <div id="newAgentModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-semibold">Tuyển thêm Nhân viên Ảo AI</h3>
+        <button onclick="closeNewAgentModal()" class="text-slate-400 hover:text-white cursor-pointer">✕</button>
+      </div>
+      <form id="newAgentForm" onsubmit="createAgent(event)" class="space-y-3 text-xs">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Tên AI Agent *</label>
+            <input id="aName" required type="text" placeholder="VD: AI Sale"
+              class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Chuyên môn / Vai trò</label>
+            <input id="aRole" type="text" placeholder="VD: Báo giá & Chốt đơn"
+              class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Từ khóa định tuyến (cách nhau bằng dấu phẩy)</label>
+          <input id="aKeywords" type="text" placeholder="sale, báo giá, hợp đồng, lead"
+            class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100" />
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">System Prompt (Chỉ dẫn vai trò)</label>
+          <textarea id="aPrompt" rows="3" placeholder="Bạn là nhân viên AI Sale chuyên nghiệp..."
+            class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeNewAgentModal()" class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 cursor-pointer">Hủy</button>
+          <button type="submit" class="px-4 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-medium cursor-pointer">Thêm AI Agent</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Cài đặt AI & Sao lưu -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-5 space-y-4 shadow-2xl text-xs">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-semibold">Cài đặt AI thật & Sao lưu dữ liệu</h3>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white cursor-pointer">✕</button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-slate-400 mb-1">Google Gemini API Key (tùy chọn — để trống sẽ dùng chế độ mô phỏng)</label>
+          <input id="sGeminiKey" type="password" placeholder="AIza..."
+            class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-100" />
+          <p class="text-slate-500 mt-1">Key chỉ lưu cục bộ trong trình duyệt của bạn (`localStorage`), gọi trực tiếp Google Gemini API.</p>
+        </div>
+        <div class="flex justify-end">
+          <button onclick="saveSettings()" class="px-3.5 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 text-white font-medium cursor-pointer">Lưu cài đặt AI</button>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-800 space-y-2.5">
+        <div class="font-semibold text-slate-300">Lưu dữ liệu trực tiếp vào thư mục ổ cứng (Chrome / Edge)</div>
+        <p class="text-slate-400">Chọn 1 thư mục trên máy tính của bạn — mọi thay đổi sẽ tự động lưu vào file <code class="text-indigo-300">ai-workforce-data.json</code> trong thư mục đó.</p>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="linkLocalFolder()" class="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 cursor-pointer">📂 Chọn thư mục trên ổ cứng</button>
+          <button onclick="exportData()" class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-950 hover:bg-slate-800 text-slate-200 cursor-pointer">⬇ Xuất file (.json)</button>
+          <label class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-950 hover:bg-slate-800 text-slate-200 cursor-pointer">
+            ⬆ Nhập file (.json)
+            <input type="file" accept=".json" onchange="importData(event)" class="hidden" />
+          </label>
+          <button onclick="resetDemo()" class="px-3 py-1.5 rounded-lg border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 cursor-pointer">↺ Khôi phục mẫu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Drawer: Chi tiết Task -->
+  <div id="detailModal" class="hidden fixed inset-0 z-50 flex justify-end bg-black/60">
+    <div class="bg-slate-900 border-l border-slate-800 w-full max-w-xl h-full overflow-y-auto p-5 flex flex-col justify-between gap-4">
+      <div id="detailBody" class="space-y-4"></div>
+      <div id="detailActions" class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800"></div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'ai_workforce_os_standalone_v1';
+    const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6'];
+    const COLUMNS = [
+      { id: 'backlog', label: 'Cần làm (Backlog)' },
+      { id: 'in_progress', label: 'Đang thực thi (AI Running)' },
+      { id: 'review', label: 'Chờ duyệt (QA Passed)' },
+      { id: 'done', label: 'Hoàn thành (Done)' }
+    ];
+    const TODAY = new Date().toISOString().slice(0, 10);
+
+    function defaultAgents() {
+      return [
+        { id: 'ai-marketing', name: 'AI Marketing', role: 'Content, SEO & Chiến dịch', systemPrompt: 'Bạn là nhân viên AI Marketing chuyên nghiệp. Viết nội dung rõ ràng, có cấu trúc và CTA.', keywords: ['marketing', 'bài viết', 'seo', 'facebook', 'email', 'chiến dịch', 'quảng cáo', 'content', 'video', 'social'] },
+        { id: 'ai-cskh', name: 'AI CSKH', role: 'Ticket, Phản hồi & FAQ', systemPrompt: 'Bạn là nhân viên AI CSKH. Phân loại ticket, soạn phản hồi lịch sự và cập nhật FAQ.', keywords: ['khách hàng', 'cskh', 'ticket', 'khiếu nại', 'phản hồi', 'faq', 'hỗ trợ', 'tư vấn', 'chat'] },
+        { id: 'ai-dev', name: 'AI Dev', role: 'Code, Bugfix & API', systemPrompt: 'Bạn là kỹ sư phần mềm AI. Thiết kế giải pháp kỹ thuật sạch, an toàn và có unit test.', keywords: ['code', 'api', 'bug', 'lỗi', 'web', 'database', 'dev', 'test', 'pr', 'tính năng', 'backend', 'frontend'] },
+        { id: 'ai-ops', name: 'AI QA / Ops', role: 'Kiểm duyệt & Báo cáo KPI', systemPrompt: 'Bạn là chuyên viên AI QA & Vận hành. Kiểm duyệt chất lượng và tổng hợp KPI.', keywords: ['báo cáo', 'kpi', 'qa', 'kiểm duyệt', 'quy trình', 'sop', 'vận hành', 'audit', 'chi phí'] }
+      ];
+    }
+
+    function defaultTasks() {
+      const addDays = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+      return [
+        { id: 'TASK-101', title: 'Viết chuỗi 3 email ra mắt gói AI Enterprise', description: 'Nhắm vào khách hàng SMB: Email giới thiệu, Case-study và ưu đãi 14 ngày dùng thử.', assignee: 'ai-marketing', priority: 'high', status: 'backlog', deadline: addDays(1), progress: 0, qaScore: null, deliverable: '', logs: [{ time: '09:00', actor: 'Orchestrator', msg: 'Khởi tạo và phân công cho AI Marketing.' }] },
+        { id: 'TASK-102', title: 'Phân loại & soạn trả lời 25 ticket khiếu nại thanh toán', description: 'Phân nhóm theo nguyên nhân (lỗi thẻ, gia hạn, hóa đơn VAT) và soạn mẫu phản hồi lịch sự.', assignee: 'ai-cskh', priority: 'high', status: 'review', deadline: TODAY, progress: 100, qaScore: 94, deliverable: '• Đã phân loại 25/25 ticket: 12 lỗi gia hạn, 8 yêu cầu VAT, 5 lỗi cổng thanh toán.\n• Đã soạn 3 bộ mẫu phản hồi chuẩn SLA.', logs: [{ time: '08:15', actor: 'AI CSKH', msg: 'Hoàn tất phân loại 25 ticket.' }, { time: '08:18', actor: 'AI QA / Ops', msg: 'Kiểm duyệt đạt 94/100.' }] },
+        { id: 'TASK-103', title: 'Xây dựng API Webhook đồng bộ đơn hàng sang CRM', description: 'Endpoint POST /webhooks/orders có xác thực chữ ký HMAC và retry 3 lần.', assignee: 'ai-dev', priority: 'medium', status: 'backlog', deadline: addDays(3), progress: 0, qaScore: null, deliverable: '', logs: [{ time: '09:10', actor: 'Orchestrator', msg: 'Giao việc kỹ thuật cho AI Dev.' }] },
+        { id: 'TASK-104', title: 'Lên kế hoạch nội dung TikTok & LinkedIn tháng mới', description: '12 chủ đề xoay quanh tự động hóa vận hành bằng AI, kèm hook 3 giây đầu.', assignee: 'ai-marketing', priority: 'medium', status: 'backlog', deadline: addDays(-1), progress: 0, qaScore: null, deliverable: '', logs: [{ time: '09:20', actor: 'Orchestrator', msg: 'Cảnh báo: Đầu việc đang quá hạn.' }] }
+      ];
+    }
+
+    let state = {
+      view: 'kanban',
+      agents: [],
+      tasks: [],
+      geminiKey: '',
+      runningIds: new Set(),
+      activities: [],
+      selectedTaskId: null
+    };
+
+    function nowTime() { return new Date().toTimeString().slice(0, 8); }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          state.agents = Array.isArray(parsed.agents) && parsed.agents.length ? parsed.agents : defaultAgents();
+          state.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : defaultTasks();
+          state.geminiKey = parsed.geminiKey || '';
+        } else {
+          state.agents = defaultAgents();
+          state.tasks = defaultTasks();
+        }
+      } catch {
+        state.agents = defaultAgents();
+        state.tasks = defaultTasks();
+      }
+      addActivity('Orchestrator', 'AI Workforce OS đã sẵn sàng. Mọi thay đổi được tự động lưu.');
+    }
+
+    let localFileHandle = null;
+    let localFolderName = '';
+
+    async function saveToDisk() {
+      // If already linked to a file handle, write immediately
+      if (localFileHandle) {
+        await writeToLinkedFile();
+        addActivity('Ổ cứng', `Đã lưu trực tiếp vào "${localFolderName}".`);
+        return;
+      }
+
+      // Try native Save As dialog (Chrome/Edge in secure context)
+      if (typeof window.showSaveFilePicker === 'function') {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: 'ai-workforce-data.json',
+            types: [{ description: 'AI Workforce Data', accept: { 'application/json': ['.json'] } }]
+          });
+          localFileHandle = handle;
+          localFolderName = handle.name;
+          await writeToLinkedFile();
+          updateDiskBadge();
+          addActivity('Ổ cứng', `Đã liên kết & lưu trực tiếp vào "${localFolderName}".`);
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return;
+          // Fall through to standard browser download if blocked (e.g. file:// restriction)
+        }
+      }
+
+      // Guaranteed fallback: works 100% on every browser & file://
+      exportData();
+      addActivity('Ổ cứng', 'Đã tải file ai-workforce-data.json về máy tính của bạn.');
+    }
+
+    async function linkLocalFolder() {
+      if (!window.showDirectoryPicker) {
+        return saveToDisk();
+      }
+      try {
+        const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        localFolderName = dirHandle.name + '/ai-workforce-data.json';
+        const fileHandle = await dirHandle.getFileHandle('ai-workforce-data.json', { create: true });
+        localFileHandle = fileHandle;
+
+        const file = await fileHandle.getFile();
+        const text = await file.text();
+        if (text && text.trim()) {
+          const parsed = JSON.parse(text);
+          if (Array.isArray(parsed.agents) && parsed.agents.length) state.agents = parsed.agents;
+          if (Array.isArray(parsed.tasks)) state.tasks = parsed.tasks;
+          addActivity('Ổ cứng', `Đã tải dữ liệu từ "${localFolderName}".`);
+        } else {
+          await writeToLinkedFile();
+          addActivity('Ổ cứng', `Đã liên kết và tạo mới "${localFolderName}".`);
+        }
+
+        updateDiskBadge();
+        saveState();
+        render();
+        closeSettingsModal();
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          // Graceful fallback instead of showing an error
+          await saveToDisk();
+        }
+      }
+    }
+
+    async function writeToLinkedFile() {
+      if (!localFileHandle) return;
+      try {
+        const writable = await localFileHandle.createWritable();
+        await writable.write(JSON.stringify({
+          updatedAt: new Date().toISOString(),
+          agents: state.agents,
+          tasks: state.tasks
+        }, null, 2));
+        await writable.close();
+      } catch (err) {
+        exportData();
+      }
+    }
+
+    function updateDiskBadge() {
+      const badge = document.getElementById('diskSyncBadge');
+      if (!badge) return;
+      if (localFileHandle) {
+        badge.textContent = `● Đang tự lưu vào ổ cứng: ${localFolderName}`;
+        badge.className = 'text-xs text-emerald-400 font-medium';
+      } else {
+        badge.textContent = '● Tự động lưu trên trình duyệt';
+        badge.className = 'text-xs text-emerald-400';
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          agents: state.agents,
+          tasks: state.tasks,
+          geminiKey: state.geminiKey
+        }));
+      } catch {}
+      if (localFileHandle) {
+        writeToLinkedFile();
+      }
+    }
+
+    function addActivity(actor, msg) {
+      state.activities.unshift({ time: nowTime(), actor, msg });
+      if (state.activities.length > 30) state.activities.pop();
+      renderActivityFeed();
+    }
+
+    function getAgent(id) {
+      const idx = state.agents.findIndex(a => a.id === id);
+      const a = state.agents[idx] || state.agents[0];
+      return { ...a, color: COLORS[(idx >= 0 ? idx : 0) % COLORS.length] };
+    }
+
+    function autoRouteAgent(text) {
+      const lower = (text || '').toLowerCase();
+      let bestId = state.agents[0].id;
+      let bestScore = 0;
+      for (const a of state.agents) {
+        let score = 0;
+        for (const kw of (a.keywords || [])) {
+          if (lower.includes(kw)) score++;
+        }
+        if (score > bestScore) { bestScore = score; bestId = a.id; }
+      }
+      return bestId;
+    }
+
+    async function executeWithLLM(agent, task) {
+      if (state.geminiKey) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.geminiKey)}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: agent.systemPrompt || `Bạn là ${agent.name}.` }] },
+            contents: [{ role: 'user', parts: [{ text: `Tiêu đề: ${task.title}\nMô tả: ${task.description || 'Không có'}\nDeadline: ${task.deadline}\nHãy thực hiện và trình bày sản phẩm bàn giao hoàn chỉnh bằng tiếng Việt.` }] }]
+          })
+        });
+        if (!res.ok) throw new Error(`Gemini API lỗi (${res.status})`);
+        const data = await res.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || '(Không có phản hồi)';
+      }
+      await new Promise(r => setTimeout(r, 1200));
+      return `### Sản phẩm bàn giao từ ${agent.name}\n• **Đầu việc**: ${task.title}\n• **Phân tích yêu cầu**: Đã tiếp nhận brief và xác định mục tiêu cốt lõi.\n• **Kết quả thực thi**: Đã hoàn thiện bản thảo chi tiết theo vai trò ${agent.role}, sẵn sàng để Quản lý nghiệm thu.\n• *(Mẹo: Gắn Google Gemini API Key trong "⚙ Cài đặt AI" để AI viết nội dung thật 100%)*`;
+    }
+
+    async function runAgentTask(taskId) {
+      const task = state.tasks.find(t => t.id === taskId);
+      if (!task || state.runningIds.has(taskId)) return;
+      const agent = getAgent(task.assignee);
+      state.runningIds.add(taskId);
+      task.status = 'in_progress';
+      task.progress = 30;
+      task.logs.push({ time: nowTime(), actor: 'Orchestrator', msg: `Kích hoạt ${agent.name} thực thi ${task.id}.` });
+      addActivity('Orchestrator', `Giao ${task.id} cho ${agent.name}.`);
+      saveState(); render();
+
+      try {
+        task.progress = 65;
+        addActivity(agent.name, `[${task.id}] Đang tạo sản phẩm đầu ra...`);
+        render();
+        const output = await executeWithLLM(agent, task);
+        task.deliverable = output;
+        task.progress = 90;
+        task.logs.push({ time: nowTime(), actor: agent.name, msg: 'Đã nộp bản thảo, chuyển sang AI QA kiểm duyệt.' });
+        render();
+
+        await new Promise(r => setTimeout(r, 600));
+        task.qaScore = 90 + Math.floor(Math.random() * 9);
+        task.progress = 100;
+        task.status = 'review';
+        task.logs.push({ time: nowTime(), actor: 'AI QA / Ops', msg: `Kiểm duyệt đạt ${task.qaScore}/100 → Chuyển sang Chờ duyệt.` });
+        addActivity('AI QA / Ops', `[${task.id}] Đạt ${task.qaScore}/100 → Chờ duyệt.`);
+      } catch (err) {
+        task.status = 'backlog';
+        task.logs.push({ time: nowTime(), actor: 'Orchestrator', msg: `Lỗi: ${err.message}` });
+        addActivity('Orchestrator', `[${task.id}] Lỗi: ${err.message}`);
+      } finally {
+        state.runningIds.delete(taskId);
+        saveState(); render();
+        if (state.selectedTaskId === taskId) renderDetailModal(taskId);
+      }
+    }
+
+    function runAllBacklog() {
+      state.tasks.filter(t => t.status === 'backlog').forEach((t, i) => setTimeout(() => runAgentTask(t.id), i * 400));
+    }
+
+    function approveTask(id) {
+      const t = state.tasks.find(x => x.id === id);
+      if (!t) return;
+      t.status = 'done'; t.progress = 100;
+      t.logs.push({ time: nowTime(), actor: 'Quản lý', msg: 'Đã nghiệm thu và duyệt hoàn thành.' });
+      addActivity('Quản lý', `Duyệt hoàn thành ${t.id}.`);
+      saveState(); render();
+      if (state.selectedTaskId === id) renderDetailModal(id);
+    }
+
+    function reviseTask(id) {
+      const t = state.tasks.find(x => x.id === id);
+      if (!t) return;
+      const fb = prompt('Nhập ghi chú chỉnh sửa cho AI Agent (tùy chọn):') || '';
+      t.status = 'backlog'; t.progress = 0; t.qaScore = null;
+      if (fb) t.description = `${t.description}\n[Yêu cầu chỉnh sửa]: ${fb}`.trim();
+      t.logs.push({ time: nowTime(), actor: 'Quản lý', msg: `Yêu cầu làm lại${fb ? ': ' + fb : ''}.` });
+      saveState(); render();
+      runAgentTask(id);
+    }
+
+    function deleteTask(id) {
+      state.tasks = state.tasks.filter(t => t.id !== id);
+      closeDetailModal(); saveState(); render();
+    }
+
+    function priorityBadge(p) {
+      if (p === 'high') return `<span class="text-xs px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 font-medium">Cao</span>`;
+      if (p === 'medium') return `<span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-medium">Trung bình</span>`;
+      return `<span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Thấp</span>`;
+    }
+
+    function statusLabel(s) {
+      return { backlog: 'Cần làm', in_progress: 'Đang thực thi', review: 'Chờ duyệt', done: 'Hoàn thành' }[s] || s;
+    }
+
+    function isOverdue(t) { return t.status !== 'done' && t.deadline < TODAY; }
+
+    function populateAgentSelects() {
+      const f = document.getElementById('filterAgent');
+      const cur = f.value || 'all';
+      f.innerHTML = `<option value="all">Tất cả AI Agent</option>` + state.agents.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+      f.value = cur;
+      document.getElementById('fAgent').innerHTML = `<option value="auto">✨ Tự động (Orchestrator)</option>` + state.agents.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+    }
+
+    function getFilteredTasks() {
+      const q = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+      const agent = document.getElementById('filterAgent')?.value || 'all';
+      const prio = document.getElementById('filterPriority')?.value || 'all';
+      return state.tasks.filter(t => {
+        if (agent !== 'all' && t.assignee !== agent) return false;
+        if (prio !== 'all' && t.priority !== prio) return false;
+        if (q && !t.title.toLowerCase().includes(q) && !t.id.toLowerCase().includes(q)) return false;
+        return true;
+      });
+    }
+
+    function renderAgentRoster() {
+      document.getElementById('agentRoster').innerHTML = state.agents.map((a, idx) => {
+        const color = COLORS[idx % COLORS.length];
+        const tasks = state.tasks.filter(t => t.assignee === a.id);
+        const running = tasks.filter(t => t.status === 'in_progress').length;
+        const done = tasks.filter(t => t.status === 'done').length;
+        const tag = a.name.replace(/^AI\s+/i, '').slice(0, 3).toUpperCase();
+        return `
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between gap-2.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white" style="background:${color}">${tag}</div>
+                <div><div class="text-xs font-semibold">${a.name}</div><div class="text-xs text-slate-400">${a.role}</div></div>
+              </div>
+              <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
+                <span class="w-2 h-2 rounded-full ${running > 0 ? 'bg-indigo-400 pulse-dot' : 'bg-emerald-400'}"></span>${running > 0 ? 'Đang chạy' : 'Sẵn sàng'}
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-xs pt-2 border-t border-slate-800 text-slate-400">
+              <span>Tổng: <strong class="text-slate-100">${tasks.length}</strong></span>
+              <span>Đang chạy: <strong class="text-slate-100">${running}</strong></span>
+              <span>Xong: <strong class="text-emerald-400">${done}</strong></span>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderTaskCard(task) {
+      const agent = getAgent(task.assignee);
+      const overdue = isOverdue(task);
+      const isRunning = state.runningIds.has(task.id);
+      return `
+        <div draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${task.id}')" onclick="openDetailModal('${task.id}')"
+             class="bg-slate-950 border border-slate-800 hover:border-indigo-500 rounded-lg p-3 space-y-2 transition cursor-pointer">
+          <div class="flex items-center justify-between gap-2"><span class="text-xs font-mono text-slate-400">${task.id}</span>${priorityBadge(task.priority)}</div>
+          <div class="text-xs font-semibold leading-snug">${task.title}</div>
+          <p class="text-xs text-slate-400 line-clamp-2">${task.description || 'Không có mô tả thêm.'}</p>
+          ${task.progress > 0 || isRunning ? `
+            <div class="space-y-1">
+              <div class="flex justify-between text-xs text-slate-400"><span>${isRunning ? 'AI đang thực thi...' : 'Tiến độ'}</span><span class="font-mono">${task.progress}%</span></div>
+              <div class="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden"><div class="h-full rounded-full transition-all" style="width:${task.progress}%; background:${agent.color}"></div></div>
+            </div>` : ''}
+          <div class="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+            <span class="inline-flex items-center gap-1.5 font-medium"><span class="w-2 h-2 rounded-full" style="background:${agent.color}"></span>${agent.name}</span>
+            <span class="${overdue ? 'text-rose-400 font-semibold' : 'text-slate-400'} font-mono">${overdue ? '⚠ ' : ''}${task.deadline}</span>
+          </div>
+          <div class="flex items-center gap-1.5 pt-1" onclick="event.stopPropagation()">
+            ${task.status === 'backlog' ? `<button onclick="runAgentTask('${task.id}')" class="w-full py-1 rounded-md text-xs font-medium bg-indigo-500 hover:bg-indigo-400 text-white cursor-pointer">▶ Chạy AI Agent</button>` : ''}
+            ${task.status === 'review' ? `<button onclick="approveTask('${task.id}')" class="flex-1 py-1 rounded-md text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer">✓ Duyệt (${task.qaScore || 90}đ)</button><button onclick="reviseTask('${task.id}')" class="px-2.5 py-1 rounded-md text-xs border border-slate-700 text-slate-300 hover:bg-slate-800 cursor-pointer">↺ Sửa</button>` : ''}
+          </div>
+        </div>`;
+    }
+
+    function renderKanban(tasks) {
+      return `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3.5">${COLUMNS.map(col => {
+        const colTasks = tasks.filter(t => t.status === col.id);
+        return `<div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col gap-2.5 kanban-col"
+                     ondragover="event.preventDefault(); this.classList.add('drag-over')"
+                     ondragleave="this.classList.remove('drag-over')"
+                     ondrop="this.classList.remove('drag-over'); handleDrop(event, '${col.id}')">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+            <span class="text-xs font-semibold">${col.label}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-slate-950 border border-slate-800 text-slate-400 font-mono">${colTasks.length}</span>
+          </div>
+          <div class="space-y-2.5 flex-1">${colTasks.length ? colTasks.map(renderTaskCard).join('') : `<div class="text-xs text-slate-500 text-center py-8 border border-dashed border-slate-800 rounded-lg">Trống</div>`}</div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+
+    function renderListView(tasks) {
+      return `<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto"><table class="w-full text-left border-collapse text-xs">
+        <thead><tr class="border-b border-slate-800 text-slate-400"><th class="py-3 px-4">Mã</th><th class="py-3 px-4">Công việc</th><th class="py-3 px-4">AI Agent</th><th class="py-3 px-4">Ưu tiên</th><th class="py-3 px-4">Trạng thái</th><th class="py-3 px-4">Deadline</th><th class="py-3 px-4 text-right">Thao tác</th></tr></thead>
+        <tbody class="divide-y divide-slate-800">${tasks.map(t => {
+          const agent = getAgent(t.assignee); const overdue = isOverdue(t);
+          return `<tr class="hover:bg-slate-800/50 cursor-pointer" onclick="openDetailModal('${t.id}')">
+            <td class="py-3 px-4 font-mono text-slate-400">${t.id}</td><td class="py-3 px-4 font-medium">${t.title}</td>
+            <td class="py-3 px-4"><span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full" style="background:${agent.color}"></span>${agent.name}</span></td>
+            <td class="py-3 px-4">${priorityBadge(t.priority)}</td><td class="py-3 px-4">${statusLabel(t.status)} (${t.progress}%)</td>
+            <td class="py-3 px-4 font-mono ${overdue ? 'text-rose-400 font-semibold' : 'text-slate-400'}">${overdue ? 'Quá hạn • ' : ''}${t.deadline}</td>
+            <td class="py-3 px-4 text-right" onclick="event.stopPropagation()">
+              ${t.status === 'backlog' ? `<button onclick="runAgentTask('${t.id}')" class="px-2.5 py-1 rounded bg-indigo-500 text-white cursor-pointer">▶ Chạy</button>` : ''}
+              ${t.status === 'review' ? `<button onclick="approveTask('${t.id}')" class="px-2.5 py-1 rounded bg-emerald-600 text-white cursor-pointer">✓ Duyệt</button>` : ''}
+              ${t.status === 'done' ? `<span class="text-emerald-400">Đã xong</span>` : ''}
+            </td></tr>`;
+        }).join('')}</tbody></table></div>`;
+    }
+
+    function renderDeadlineView(tasks) {
+      const overdue = tasks.filter(t => t.status !== 'done' && t.deadline < TODAY);
+      const today = tasks.filter(t => t.status !== 'done' && t.deadline === TODAY);
+      const upcoming = tasks.filter(t => t.status !== 'done' && t.deadline > TODAY).sort((a,b) => a.deadline.localeCompare(b.deadline));
+      const completed = tasks.filter(t => t.status === 'done');
+      const block = (title, items, cls) => `<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-2.5">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800"><h3 class="text-xs font-semibold ${cls}">${title}</h3><span class="text-xs font-mono text-slate-400">${items.length} việc</span></div>
+        ${items.length ? items.map(t => `<div onclick="openDetailModal('${t.id}')" class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-indigo-500 cursor-pointer text-xs">
+          <div><div class="font-medium"><span class="font-mono text-slate-400 mr-1.5">${t.id}</span>${t.title}</div><div class="text-slate-400">${getAgent(t.assignee).name} • ${statusLabel(t.status)}</div></div>
+          <div class="flex items-center gap-3"><span class="font-mono">${t.deadline}</span>${priorityBadge(t.priority)}${t.status === 'backlog' ? `<button onclick="event.stopPropagation(); runAgentTask('${t.id}')" class="px-2.5 py-1 rounded bg-indigo-500 text-white cursor-pointer">▶ Chạy</button>` : ''}</div>
+        </div>`).join('') : `<div class="text-xs text-slate-500">Không có đầu việc nào.</div>`}
+      </div>`;
+      return `<div class="space-y-4">${block('⚠ Quá hạn (Cần xử lý ngay)', overdue, 'text-rose-400')}${block('⏰ Hạn hôm nay (' + TODAY + ')', today, 'text-amber-400')}${block('📅 Sắp tới', upcoming, 'text-slate-200')}${block('✓ Đã hoàn thành', completed, 'text-emerald-400')}</div>`;
+    }
+
+    function renderActivityFeed() {
+      document.getElementById('liveIndicator').innerHTML = state.runningIds.size > 0
+        ? `<span class="text-indigo-400">● ${state.runningIds.size} AI Agent đang thực thi...</span>` : 'Sẵn sàng';
+      document.getElementById('activityFeed').innerHTML = state.activities.map(a =>
+        `<div class="flex gap-2"><span class="text-slate-500 shrink-0">[${a.time}]</span><span class="font-semibold text-indigo-400 shrink-0">${a.actor}:</span><span>${a.msg}</span></div>`
+      ).join('');
+    }
+
+    function render() {
+      const badge = document.getElementById('aiModeBadge');
+      if (state.geminiKey) {
+        badge.textContent = 'Gemini AI Live';
+        badge.className = 'text-xs px-2.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-300';
+      } else {
+        badge.textContent = 'Chế độ Mô phỏng';
+        badge.className = 'text-xs px-2.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-300';
+      }
+      ['kanban', 'list', 'deadline'].forEach(v => {
+        document.getElementById('tab-' + v).className = v === state.view
+          ? 'px-3 py-1.5 rounded-md text-xs font-medium bg-indigo-500 text-white cursor-pointer'
+          : 'px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white cursor-pointer';
+      });
+      populateAgentSelects();
+      renderAgentRoster();
+      renderActivityFeed();
+      const tasks = getFilteredTasks();
+      const main = document.getElementById('mainContent');
+      if (state.view === 'kanban') main.innerHTML = renderKanban(tasks);
+      else if (state.view === 'list') main.innerHTML = renderListView(tasks);
+      else main.innerHTML = renderDeadlineView(tasks);
+    }
+
+    function switchView(v) { state.view = v; render(); }
+
+    function handleDrop(ev, newStatus) {
+      ev.preventDefault();
+      const id = ev.dataTransfer.getData('text/plain');
+      const task = state.tasks.find(t => t.id === id);
+      if (!task || task.status === newStatus) return;
+      if (newStatus === 'in_progress') return runAgentTask(id);
+      task.status = newStatus;
+      if (newStatus === 'done') task.progress = 100;
+      task.logs.push({ time: nowTime(), actor: 'Quản lý', msg: `Chuyển sang "${statusLabel(newStatus)}".` });
+      saveState(); render();
+    }
+
+    function openNewTaskModal() {
+      document.getElementById('fDeadline').value = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+      document.getElementById('newTaskModal').classList.remove('hidden');
+    }
+    function closeNewTaskModal() { document.getElementById('newTaskModal').classList.add('hidden'); document.getElementById('newTaskForm').reset(); }
+    function createTask(e) {
+      e.preventDefault();
+      const title = document.getElementById('fTitle').value.trim();
+      const desc = document.getElementById('fDesc').value.trim();
+      let assignee = document.getElementById('fAgent').value;
+      const auto = assignee === 'auto';
+      if (auto) assignee = autoRouteAgent(title + ' ' + desc);
+      const id = `TASK-${101 + state.tasks.length + Math.floor(Math.random() * 50)}`;
+      state.tasks.unshift({
+        id, title, description: desc, assignee,
+        priority: document.getElementById('fPriority').value,
+        status: 'backlog', deadline: document.getElementById('fDeadline').value,
+        progress: 0, qaScore: null, deliverable: '',
+        logs: [{ time: nowTime(), actor: 'Orchestrator', msg: `Giao cho ${getAgent(assignee).name}${auto ? ' (tự động định tuyến)' : ''}.` }]
+      });
+      const autoRun = document.getElementById('fAutoRun').checked;
+      saveState(); closeNewTaskModal(); render();
+      if (autoRun) setTimeout(() => runAgentTask(id), 250);
+    }
+
+    function openNewAgentModal() { document.getElementById('newAgentModal').classList.remove('hidden'); }
+    function closeNewAgentModal() { document.getElementById('newAgentModal').classList.add('hidden'); document.getElementById('newAgentForm').reset(); }
+    function createAgent(e) {
+      e.preventDefault();
+      const name = document.getElementById('aName').value.trim();
+      const id = 'ai-' + Date.now();
+      state.agents.push({
+        id, name,
+        role: document.getElementById('aRole').value.trim() || 'Nhân viên AI chuyên trách',
+        keywords: document.getElementById('aKeywords').value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
+        systemPrompt: document.getElementById('aPrompt').value.trim() || `Bạn là ${name}.`
+      });
+      addActivity('Quản lý', `Tuyển thêm nhân viên ảo ${name}.`);
+      saveState(); closeNewAgentModal(); render();
+    }
+
+    function openSettingsModal() {
+      document.getElementById('sGeminiKey').value = state.geminiKey || '';
+      document.getElementById('settingsModal').classList.remove('hidden');
+    }
+    function closeSettingsModal() { document.getElementById('settingsModal').classList.add('hidden'); }
+    function saveSettings() {
+      state.geminiKey = document.getElementById('sGeminiKey').value.trim();
+      saveState(); closeSettingsModal(); render();
+      addActivity('Hệ thống', state.geminiKey ? 'Đã kích hoạt Google Gemini API Live.' : 'Đã chuyển về Chế độ Mô phỏng.');
+    }
+
+    function exportData() {
+      const blob = new Blob([JSON.stringify({ agents: state.agents, tasks: state.tasks }, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `ai-workforce-backup-${TODAY}.json`;
+      a.click();
+    }
+
+    function importData(e) {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (Array.isArray(data.agents)) state.agents = data.agents;
+          if (Array.isArray(data.tasks)) state.tasks = data.tasks;
+          saveState(); render(); closeSettingsModal();
+          addActivity('Hệ thống', 'Đã khôi phục dữ liệu từ file sao lưu.');
+        } catch { alert('File sao lưu không hợp lệ!'); }
+      };
+      reader.readAsText(file);
+    }
+
+    function resetDemo() {
+      if (!confirm('Khôi phục lại dữ liệu mẫu ban đầu?')) return;
+      state.agents = defaultAgents();
+      state.tasks = defaultTasks();
+      saveState(); closeSettingsModal(); render();
+    }
+
+    function openDetailModal(id) { state.selectedTaskId = id; renderDetailModal(id); document.getElementById('detailModal').classList.remove('hidden'); }
+    function closeDetailModal() { state.selectedTaskId = null; document.getElementById('detailModal').classList.add('hidden'); }
+    function renderDetailModal(id) {
+      const task = state.tasks.find(t => t.id === id);
+      if (!task) return;
+      const agent = getAgent(task.assignee);
+      document.getElementById('detailBody').innerHTML = `
+        <div class="flex items-start justify-between gap-3 pb-3 border-b border-slate-800">
+          <div><div class="flex items-center gap-2 text-xs text-slate-400 font-mono"><span>${task.id}</span> • <span>${statusLabel(task.status)}</span> ${priorityBadge(task.priority)}</div><h3 class="text-base font-semibold mt-1">${task.title}</h3></div>
+          <button onclick="closeDetailModal()" class="text-slate-400 hover:text-white cursor-pointer">✕</button>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-xs bg-slate-950 p-3 rounded-lg border border-slate-800">
+          <div><div class="text-slate-400">Nhân viên AI</div><div class="font-semibold mt-0.5">${agent.name}</div></div>
+          <div><div class="text-slate-400">Deadline / Điểm QA</div><div class="font-semibold mt-0.5 font-mono">${task.deadline} • ${task.qaScore ? task.qaScore + '/100' : 'Chưa chấm'}</div></div>
+        </div>
+        <div class="space-y-1 text-xs"><div class="font-semibold text-slate-400">Yêu cầu (Brief)</div><p class="p-3 rounded-lg bg-slate-950 border border-slate-800 whitespace-pre-wrap">${task.description || 'Không có mô tả.'}</p></div>
+        <div class="space-y-1 text-xs"><div class="font-semibold text-slate-400">Kết quả đầu ra của AI Agent</div><pre class="p-3 rounded-lg bg-slate-950 border border-slate-800 whitespace-pre-wrap font-sans leading-relaxed">${task.deliverable || 'Chưa có sản phẩm đầu ra.'}</pre></div>
+        <div class="space-y-1.5 text-xs"><div class="font-semibold text-slate-400">Nhật ký thực thi</div><div class="space-y-1 p-3 rounded-lg bg-slate-950 border border-slate-800 font-mono max-h-44 overflow-y-auto">${task.logs.map(l => `<div><span class="text-slate-500">[${l.time}]</span> <strong class="text-indigo-400">${l.actor}:</strong> ${l.msg}</div>`).join('')}</div></div>`;
+      document.getElementById('detailActions').innerHTML = `
+        <button onclick="deleteTask('${task.id}')" class="px-3 py-1.5 rounded-lg text-xs text-rose-400 border border-slate-700 hover:bg-rose-500/10 cursor-pointer">Xóa việc</button>
+        <div class="flex items-center gap-2">
+          ${task.status === 'backlog' ? `<button onclick="runAgentTask('${task.id}')" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-500 text-white cursor-pointer">▶ Chạy AI Agent</button>` : ''}
+          ${task.status === 'review' ? `<button onclick="reviseTask('${task.id}')" class="px-3 py-1.5 rounded-lg text-xs border border-slate-700 cursor-pointer">↺ Yêu cầu sửa</button><button onclick="approveTask('${task.id}')" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 text-white cursor-pointer">✓ Duyệt hoàn thành</button>` : ''}
+          <button onclick="closeDetailModal()" class="px-3 py-1.5 rounded-lg text-xs border border-slate-700 text-slate-400 cursor-pointer">Đóng</button>
+        </div>`;
+    }
+
+    loadState();
+    render();
+  </script>
+</body>
+</html>

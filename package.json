@@ -1,0 +1,13 @@
+{
+  "name": "ai-workforce-orchestrator",
+  "version": "1.0.0",
+  "description": "Multi-Agent AI Workforce & Task Delegation Orchestrator (Kanban / List / Deadline)",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/orchestrator.test.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
