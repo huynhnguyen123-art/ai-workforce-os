@@ -67,7 +67,7 @@
     </header>
 
     <!-- AI Agents Roster -->
-    <section id="agentRoster" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></section>
+    <section id="agentRoster" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"></section>
 
     <!-- Controls -->
     <section class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl p-3">
@@ -249,6 +249,7 @@
     function defaultAgents() {
       return [
         { id: 'ai-marketing', name: 'AI Marketing', role: 'Content, SEO & Chiến dịch', systemPrompt: 'Bạn là nhân viên AI Marketing chuyên nghiệp. Viết nội dung rõ ràng, có cấu trúc và CTA.', keywords: ['marketing', 'bài viết', 'seo', 'facebook', 'email', 'chiến dịch', 'quảng cáo', 'content', 'video', 'social'] },
+        { id: 'ai-design', name: 'AI Thiết kế', role: 'UI/UX, Banner & Thương hiệu', systemPrompt: 'Bạn là trưởng nhóm Phòng Thiết kế (AI Design). Đề xuất concept UI/UX, banner, poster, bảng màu, bố cục nhận diện thương hiệu và prompt tạo ảnh sắc nét.', keywords: ['thiết kế', 'design', 'banner', 'poster', 'logo', 'ui', 'ux', 'giao diện', 'hình ảnh', 'ảnh', 'nhận diện', 'layout', 'màu sắc'] },
         { id: 'ai-cskh', name: 'AI CSKH', role: 'Ticket, Phản hồi & FAQ', systemPrompt: 'Bạn là nhân viên AI CSKH. Phân loại ticket, soạn phản hồi lịch sự và cập nhật FAQ.', keywords: ['khách hàng', 'cskh', 'ticket', 'khiếu nại', 'phản hồi', 'faq', 'hỗ trợ', 'tư vấn', 'chat'] },
         { id: 'ai-dev', name: 'AI Dev', role: 'Code, Bugfix & API', systemPrompt: 'Bạn là kỹ sư phần mềm AI. Thiết kế giải pháp kỹ thuật sạch, an toàn và có unit test.', keywords: ['code', 'api', 'bug', 'lỗi', 'web', 'database', 'dev', 'test', 'pr', 'tính năng', 'backend', 'frontend'] },
         { id: 'ai-ops', name: 'AI QA / Ops', role: 'Kiểm duyệt & Báo cáo KPI', systemPrompt: 'Bạn là chuyên viên AI QA & Vận hành. Kiểm duyệt chất lượng và tổng hợp KPI.', keywords: ['báo cáo', 'kpi', 'qa', 'kiểm duyệt', 'quy trình', 'sop', 'vận hành', 'audit', 'chi phí'] }
@@ -261,7 +262,8 @@
         { id: 'TASK-101', title: 'Viết chuỗi 3 email ra mắt gói AI Enterprise', description: 'Nhắm vào khách hàng SMB: Email giới thiệu, Case-study và ưu đãi 14 ngày dùng thử.', assignee: 'ai-marketing', priority: 'high', status: 'backlog', deadline: addDays(1), progress: 0, qaScore: null, deliverable: '', logs: [{ time: '09:00', actor: 'Orchestrator', msg: 'Khởi tạo và phân công cho AI Marketing.' }] },
         { id: 'TASK-102', title: 'Phân loại & soạn trả lời 25 ticket khiếu nại thanh toán', description: 'Phân nhóm theo nguyên nhân (lỗi thẻ, gia hạn, hóa đơn VAT) và soạn mẫu phản hồi lịch sự.', assignee: 'ai-cskh', priority: 'high', status: 'review', deadline: TODAY, progress: 100, qaScore: 94, deliverable: '• Đã phân loại 25/25 ticket: 12 lỗi gia hạn, 8 yêu cầu VAT, 5 lỗi cổng thanh toán.\n• Đã soạn 3 bộ mẫu phản hồi chuẩn SLA.', logs: [{ time: '08:15', actor: 'AI CSKH', msg: 'Hoàn tất phân loại 25 ticket.' }, { time: '08:18', actor: 'AI QA / Ops', msg: 'Kiểm duyệt đạt 94/100.' }] },
         { id: 'TASK-103', title: 'Xây dựng API Webhook đồng bộ đơn hàng sang CRM', description: 'Endpoint POST /webhooks/orders có xác thực chữ ký HMAC và retry 3 lần.', assignee: 'ai-dev', priority: 'medium', status: 'backlog', deadline: addDays(3), progress: 0, qaScore: null, deliverable: '', logs: [{ time: '09:10', actor: 'Orchestrator', msg: 'Giao việc kỹ thuật cho AI Dev.' }] },
-        { id: 'TASK-104', title: 'Lên kế hoạch nội dung TikTok & LinkedIn tháng mới', description: '12 chủ đề xoay quanh tự động hóa vận hành bằng AI, kèm hook 3 giây đầu.', assignee: 'ai-marketing', priority: 'medium', status: 'backlog', deadline: addDays(-1), progress: 0, qaScore: null, deliverable: '', logs: [{ time: '09:20', actor: 'Orchestrator', msg: 'Cảnh báo: Đầu việc đang quá hạn.' }] }
+        { id: 'TASK-104', title: 'Thiết kế bộ 3 Banner quảng cáo ra mắt sản phẩm mới', description: 'Kích thước 1200x628 (Facebook) và 1080x1920 (Story), phong cách hiện đại, nổi bật CTA.', assignee: 'ai-design', priority: 'high', status: 'backlog', deadline: addDays(2), progress: 0, qaScore: null, deliverable: '', logs: [{ time: '09:15', actor: 'Orchestrator', msg: 'Phân công cho Phòng Thiết kế (AI Thiết kế).' }] },
+        { id: 'TASK-105', title: 'Lên kế hoạch nội dung TikTok & LinkedIn tháng mới', description: '12 chủ đề xoay quanh tự động hóa vận hành bằng AI, kèm hook 3 giây đầu.', assignee: 'ai-marketing', priority: 'medium', status: 'backlog', deadline: addDays(-1), progress: 0, qaScore: null, deliverable: '', logs: [{ time: '09:20', actor: 'Orchestrator', msg: 'Cảnh báo: Đầu việc đang quá hạn.' }] }
       ];
     }
 
@@ -283,6 +285,12 @@
         if (raw) {
           const parsed = JSON.parse(raw);
           state.agents = Array.isArray(parsed.agents) && parsed.agents.length ? parsed.agents : defaultAgents();
+          // Auto-merge newly added default departments (e.g. ai-design)
+          for (const def of defaultAgents()) {
+            if (!state.agents.some(a => a.id === def.id)) {
+              state.agents.splice(1, 0, def);
+            }
+          }
           state.tasks = Array.isArray(parsed.tasks) ? parsed.tasks : defaultTasks();
           state.geminiKey = parsed.geminiKey || '';
         } else {

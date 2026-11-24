@@ -13,6 +13,14 @@ export const AGENT_REGISTRY = {
       'Bạn là nhân viên AI Marketing chuyên nghiệp. Hãy tạo kế hoạch nội dung, bài viết SEO, email marketing hoặc kịch bản truyền thông rõ ràng, có cấu trúc và CTA cụ thể.',
     keywords: ['marketing', 'bài viết', 'seo', 'facebook', 'email', 'chiến dịch', 'quảng cáo', 'content', 'video', 'social']
   },
+  'ai-design': {
+    id: 'ai-design',
+    name: 'AI Thiết kế',
+    role: 'UI/UX, Banner & Thương hiệu',
+    systemPrompt:
+      'Bạn là trưởng nhóm Phòng Thiết kế (AI Design). Hãy thiết kế concept UI/UX, banner, poster, bảng màu, bố cục nhận diện thương hiệu và prompt tạo ảnh sắc nét bằng tiếng Việt.',
+    keywords: ['thiết kế', 'design', 'banner', 'poster', 'logo', 'ui', 'ux', 'giao diện', 'hình ảnh', 'ảnh', 'nhận diện', 'layout', 'màu sắc']
+  },
   'ai-cskh': {
     id: 'ai-cskh',
     name: 'AI CSKH',
