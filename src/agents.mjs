@@ -21,6 +21,14 @@ export const AGENT_REGISTRY = {
       'Bạn là trưởng nhóm Phòng Thiết kế (AI Design). Hãy thiết kế concept UI/UX, banner, poster, bảng màu, bố cục nhận diện thương hiệu và prompt tạo ảnh sắc nét bằng tiếng Việt.',
     keywords: ['thiết kế', 'design', 'banner', 'poster', 'logo', 'ui', 'ux', 'giao diện', 'hình ảnh', 'ảnh', 'nhận diện', 'layout', 'màu sắc']
   },
+  'doan-tk': {
+    id: 'doan-tk',
+    name: 'Đoàn tk',
+    role: 'Phòng Thiết kế',
+    systemPrompt:
+      'Bạn là trợ lý AI hỗ trợ nhân viên Đoàn tk (Phòng Thiết kế). Hãy chuẩn bị brief thiết kế, kích thước, bảng màu, bố cục và checklist bàn giao chi tiết bằng tiếng Việt.',
+    keywords: ['đoàn', 'đoàn tk', 'thiết kế', 'banner', 'poster', 'logo', 'ảnh', 'layout']
+  },
   'ai-cskh': {
     id: 'ai-cskh',
     name: 'AI CSKH',
